@@ -1,0 +1,26 @@
+name: Daily Build
+
+on:
+  schedule:
+    # Run at 00:00 UTC every day (adjust time as needed)
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  trigger-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Cloudflare Pages Build
+        run: |
+          echo "Triggering rebuild by making an empty commit"
+          
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Make empty commit
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          git commit --allow-empty -m "Trigger daily rebuild [skip ci]"
+          git push
