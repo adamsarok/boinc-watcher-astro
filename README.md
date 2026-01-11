@@ -13,12 +13,12 @@ Simple static app for displaying BOINC host and project stats.
 | `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
 | `npm run astro -- --help` | Get help using the Astro CLI                     |
 
-Data is fetched during build time from Azure Function app: https://github.com/adamsarok/BoincWatcherService
+# Setup
 
-FunctionAppUri=https://my-functions.azurewebsites.net
-x-functions-key=your_function_key_here
+Data is fetched during build time from Azure Function App (https://github.com/adamsarok/BoincWatcherService) using the following environment variables:
 
-App 
+FUNCTION_APP_URI=https://my-functions.azurewebsites.net
+X_FUNCTIONS_KEY=your_function_key_here
 
 # Attributions
 
