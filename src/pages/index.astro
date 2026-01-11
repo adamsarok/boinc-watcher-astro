@@ -67,7 +67,6 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
   );
 } else {
   try {
-    // Build yyyyMMdd date parameter for the request
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(today.getDate() - 1);
@@ -76,9 +75,8 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
 
     const pad = (n: number) => String(n).padStart(2, "0");
     const dateStr = (d: Date) =>
-      `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
 
-    // Update these paths if your functions expose different routes.
     const hostStatsUrl = (d: Date) =>
       `${FUNCTION_APP_URI}/api/hoststats/${dateStr(d)}`;
     const projectStatsUrl = (d: Date) =>
@@ -108,6 +106,8 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
           if (stats.hostStats[key]) {
             stats.hostStats[key].creditsToday =
               stats.hostStats[key].totalCredit - yStats[key].totalCredit;
+            stats.hostStats[key].credits30Days =
+              stats.hostStats[key].creditsToday; // in case monthAgo fetch fails
           }
         }
       }
@@ -117,6 +117,8 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
           if (stats.projectStats[key]) {
             stats.projectStats[key].creditsToday =
               stats.projectStats[key].totalCredit - yStats[key].totalCredit;
+            stats.projectStats[key].credits30Days =
+              stats.projectStats[key].creditsToday;
           }
         }
       }
@@ -167,6 +169,7 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
         projectStats.status
       );
     }
+
     await Promise.all([fetchYesterday(), fetchMonthAgo()]);
   } catch (err) {
     console.error("Error fetching function app stats:", err);
