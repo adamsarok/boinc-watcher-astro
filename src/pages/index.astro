@@ -111,22 +111,22 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
                 <div>
                   <h2>Host Stats</h2>
                   <div style="overflow-x:auto">
-                    <table>
+                    <table class="sortable-table" data-table="host">
                       <thead>
                         <tr style="background:#0969da;color:#fff">
-                          <th>Host Name</th>
-                          <th>Total Credit</th>
-                          <th>RAC</th>
-                          <th>Latest task download</th>
+                          <th data-sort="string" class="sortable">Host Name <span class="sort-indicator"></span></th>
+                          <th data-sort="number" class="sortable">Total Credit <span class="sort-indicator"></span></th>
+                          <th data-sort="number" class="sortable">RAC <span class="sort-indicator"></span></th>
+                          <th data-sort="date" class="sortable">Latest task download <span class="sort-indicator"></span></th>
                         </tr>
                       </thead>
                       <tbody>
                         {Object.entries(stats.hostStats).map(([key, value]) => (
                           <tr style="border-bottom:1px solid #d0d7de">
                             <td>{value.rowKey}</td>
-                            <td>{formatNumber(value.totalCredit)}</td>
-                            <td>{formatNumber(value.rac)}</td>
-                            <td>{formatTimestamp(value.latestTaskDownloadTime)}</td>
+                            <td data-value={value.totalCredit}>{formatNumber(value.totalCredit)}</td>
+                            <td data-value={value.rac}>{formatNumber(value.rac)}</td>
+                            <td data-value={value.latestTaskDownloadTime}>{formatTimestamp(value.latestTaskDownloadTime)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -139,22 +139,22 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
                 <div>
                   <h2>Project Stats</h2>
                   <div style="overflow-x:auto">
-                      <table>
+                      <table class="sortable-table" data-table="project">
                       <thead>
                         <tr style="background:#0969da;color:#fff">
-                          <th>Project Name</th>
-                          <th>Total Credit</th>
-                          <th>RAC</th>
-                          <th>Latest task download</th>
+                          <th data-sort="string" class="sortable">Project Name <span class="sort-indicator"></span></th>
+                          <th data-sort="number" class="sortable">Total Credit <span class="sort-indicator"></span></th>
+                          <th data-sort="number" class="sortable">RAC <span class="sort-indicator"></span></th>
+                          <th data-sort="date" class="sortable">Latest task download <span class="sort-indicator"></span></th>
                         </tr>
                       </thead>
                       <tbody>
                         {Object.entries(stats.projectStats).map(([key, value]) => (
                           <tr style="border-bottom:1px solid #d0d7de">
                             <td>{value.rowKey}</td>
-                            <td>{formatNumber(value.totalCredit)}</td>
-                            <td>{formatNumber(value.rac)}</td>
-                            <td>{formatTimestamp(value.latestTaskDownloadTime)}</td>
+                            <td data-value={value.totalCredit}>{formatNumber(value.totalCredit)}</td>
+                            <td data-value={value.rac}>{formatNumber(value.rac)}</td>
+                            <td data-value={value.latestTaskDownloadTime}>{formatTimestamp(value.latestTaskDownloadTime)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -248,5 +248,80 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
       z-index: -1;
       filter: blur(100px);
     }
+
+    th.sortable {
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+    }
+
+    th.sortable:hover {
+      background-color: #0550ae;
+    }
+
+    .sort-indicator {
+      margin-left: 0.5rem;
+      opacity: 0.5;
+    }
+
+    th.sortable[data-order="asc"] .sort-indicator::after {
+      content: "▲";
+      opacity: 1;
+    }
+
+    th.sortable[data-order="desc"] .sort-indicator::after {
+      content: "▼";
+      opacity: 1;
+    }
   </style>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const tables = document.querySelectorAll('.sortable-table');
+      
+      tables.forEach(table => {
+        const headers = table.querySelectorAll('th.sortable');
+        const tbody = table.querySelector('tbody');
+        
+        headers.forEach((header, columnIndex) => {
+          header.addEventListener('click', () => {
+            const sortType = header.dataset.sort;
+            const currentOrder = header.dataset.order || 'none';
+            const newOrder = currentOrder === 'asc' ? 'desc' : 'asc';
+            
+            // Remove sorting from other headers
+            headers.forEach(h => delete h.dataset.order);
+            header.dataset.order = newOrder;
+            
+            // Get rows and sort
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            rows.sort((a, b) => {
+              const cellA = a.children[columnIndex];
+              const cellB = b.children[columnIndex];
+              
+              let valueA, valueB;
+              
+              if (sortType === 'number') {
+                valueA = parseFloat(cellA.dataset.value) || 0;
+                valueB = parseFloat(cellB.dataset.value) || 0;
+              } else if (sortType === 'date') {
+                valueA = new Date(cellA.dataset.value || 0).getTime();
+                valueB = new Date(cellB.dataset.value || 0).getTime();
+              } else {
+                valueA = cellA.textContent.trim().toLowerCase();
+                valueB = cellB.textContent.trim().toLowerCase();
+              }
+              
+              if (valueA < valueB) return newOrder === 'asc' ? -1 : 1;
+              if (valueA > valueB) return newOrder === 'asc' ? 1 : -1;
+              return 0;
+            });
+            
+            // Reappend sorted rows
+            rows.forEach(row => tbody.appendChild(row));
+          });
+        });
+      });
+    });
+  </script>
 </Layout>
