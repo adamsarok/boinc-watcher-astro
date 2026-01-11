@@ -4,11 +4,58 @@ import background from "../assets/background.svg";
 
 // Build-time fetch: downloads stats from two function app endpoints using the x-functions-key header.
 
+interface HostStat {
+  rowKey: string;
+  totalCredit: number;
+  rac: number;
+  latestTaskDownloadTime: string;
+}
+
+interface ProjectStat {
+  rowKey: string;
+  totalCredit: number;
+  rac: number;
+  latestTaskDownloadTime: string;
+}
+
+interface Stats {
+  projectStats: Record<string, ProjectStat> | null;
+  hostStats: Record<string, HostStat> | null;
+}
+
+// Formatting helper functions
+const formatNumber = (value: number): string => {
+  return value.toFixed(2);
+};
+
+const formatTimestamp = (timestamp: string): string => {
+  if (!timestamp) return '';
+  
+  try {
+    const date = new Date(timestamp);
+    // Check if date is invalid or is Unix epoch (Jan 1, 1970)
+    if (isNaN(date.getTime()) || date.getFullYear() === 1970) {
+      return '';
+    }
+    return date.toLocaleString('hu-HU', {
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+  } catch {
+    return '';
+  }
+};
+
 const FUNCTION_APP_URI = import.meta.env.FUNCTION_APP_URI;
 const FUNCTIONS_KEY = import.meta.env.X_FUNCTIONS_KEY;
 
 // Stats object will be available to the template at build time.
-let stats = { projectStats: null, hostStats: null };
+let stats: Stats = { projectStats: null, hostStats: null };
 
 if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
   console.warn(
@@ -77,9 +124,9 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
                         {Object.entries(stats.hostStats).map(([key, value]) => (
                           <tr style="border-bottom:1px solid #d0d7de">
                             <td>{value.rowKey}</td>
-                            <td>{value.totalCredit}</td>
-                            <td>{value.rac}</td>
-                            <td>{value.latestTaskDownloadTime}</td>
+                            <td>{formatNumber(value.totalCredit)}</td>
+                            <td>{formatNumber(value.rac)}</td>
+                            <td>{formatTimestamp(value.latestTaskDownloadTime)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -105,9 +152,9 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
                         {Object.entries(stats.projectStats).map(([key, value]) => (
                           <tr style="border-bottom:1px solid #d0d7de">
                             <td>{value.rowKey}</td>
-                            <td>{value.totalCredit}</td>
-                            <td>{value.rac}</td>
-                            <td>{value.latestTaskDownloadTime}</td>
+                            <td>{formatNumber(value.totalCredit)}</td>
+                            <td>{formatNumber(value.rac)}</td>
+                            <td>{formatTimestamp(value.latestTaskDownloadTime)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -145,6 +192,25 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
       background: #fff;
       border-radius: 4px;
       overflow: hidden;
+      border: 1px solid #000000;
+    }
+
+    td, th {
+      padding: 0.75rem;
+      border: 1px solid #e1e4e8;
+    }
+
+    th {
+      text-align: left;
+      font-weight: 600;
+    }
+
+    tbody tr:nth-child(even) {
+      background-color: #f6f8fa;
+    }
+
+    tbody tr:nth-child(odd) {
+      background-color: #ffffff;
     }
 
     .page-container {
