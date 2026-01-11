@@ -3,43 +3,32 @@ import Layout from "../layouts/Layout.astro";
 import background from "../assets/background.svg";
 
 // Build-time fetch: downloads stats from two function app endpoints using the x-functions-key header.
-// Environment variables used (read from process.env at build time):
-// - FunctionAppUri (base URI for the Function App, e.g. https://my-functions.azurewebsites.net)
-// - x-functions-key (function key for authentication)
 
-// @ts-ignore: process is provided by the build environment
-const env = (globalThis as any).process?.env ?? {};
-const FunctionAppUri = env.FunctionAppUri;
-const FUNCTIONS_KEY = env["x-functions-key"];
+const FUNCTION_APP_URI = import.meta.env.FUNCTION_APP_URI;
+const FUNCTIONS_KEY = import.meta.env.X_FUNCTIONS_KEY;
 
 // Stats object will be available to the template at build time.
 let stats = { projectStats: null, hostStats: null };
 
-if (!FunctionAppUri || !FUNCTIONS_KEY) {
+if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
   console.warn(
     "FunctionAppUri or x-functions-key not set; skipping build-time fetch for function app stats."
   );
 } else {
   try {
-    // Normalize base URI (no trailing slash)
-    const base = FunctionAppUri.replace(/\/$/, "");
-
     // Build yyyyMMdd date parameter for the request
     const d = new Date();
     const pad = (n: number) => String(n).padStart(2, "0");
     const dateStr = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
 
     // Update these paths if your functions expose different routes.
-    const hostStatsUrl = `${base}/api/hoststats/${dateStr}`;
-    const projectStatsUrl = `${base}/api/projectstats/${dateStr}`;
+    const hostStatsUrl = `${FUNCTION_APP_URI}/api/hoststats/${dateStr}`;
+    const projectStatsUrl = `${FUNCTION_APP_URI}/api/projectstats/${dateStr}`;
 
     const [hostStats, projectStats] = await Promise.all([
       fetch(hostStatsUrl, { headers: { "x-functions-key": FUNCTIONS_KEY } }),
       fetch(projectStatsUrl, { headers: { "x-functions-key": FUNCTIONS_KEY } }),
     ]);
-
-    console.log(hostStatsUrl);
-    console.log(projectStatsUrl);
 
     if (hostStats.ok) {
       stats.projectStats = await hostStats.json();
@@ -56,7 +45,6 @@ if (!FunctionAppUri || !FUNCTIONS_KEY) {
         projectStats.status
       );
     }
-    console.log(stats);
   } catch (err) {
     console.error("Error fetching function app stats:", err);
   }
