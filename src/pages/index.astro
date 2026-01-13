@@ -9,6 +9,7 @@ interface HostStat {
   totalCredit: number;
   latestTaskDownloadTime: string;
   creditsToday?: number;
+  creditsWeekAgo?: number;
   credits30Days?: number;
 }
 
@@ -17,6 +18,7 @@ interface ProjectStat {
   totalCredit: number;
   latestTaskDownloadTime: string;
   creditsToday?: number;
+  creditsWeekAgo?: number;
   credits30Days?: number;
 }
 
@@ -67,9 +69,12 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
   );
 } else {
   try {
+    // Date helpers
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(today.getDate() - 1);
+    const weekAgo = new Date(today);
+    weekAgo.setDate(today.getDate() - 7);
     const monthAgo = new Date(today);
     monthAgo.setDate(today.getDate() - 30);
 
@@ -77,100 +82,92 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
     const dateStr = (d: Date) =>
       `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
 
-    const hostStatsUrl = (d: Date) =>
-      `${FUNCTION_APP_URI}/api/hoststats/${dateStr(d)}`;
-    const projectStatsUrl = (d: Date) =>
-      `${FUNCTION_APP_URI}/api/projectstats/${dateStr(d)}`;
+    // Generic fetch helper
+    const fetchStats = async (endpoint: string, date: Date) => {
+      const url = `${FUNCTION_APP_URI}/api/${endpoint}/${dateStr(date)}`;
+      const response = await fetch(url, {
+        headers: { "x-functions-key": FUNCTIONS_KEY },
+      });
+      return response.ok
+        ? { ok: true, data: await response.json() }
+        : { ok: false, url };
+    };
 
-    const [hostStats, projectStats] = await Promise.all([
-      fetch(hostStatsUrl(today), {
-        headers: { "x-functions-key": FUNCTIONS_KEY },
-      }),
-      fetch(projectStatsUrl(today), {
-        headers: { "x-functions-key": FUNCTIONS_KEY },
-      }),
+    // Helper to calculate credit differences
+    const updateCredits = (
+      current: Record<string, any>,
+      historical: Record<string, any>,
+      field: "creditsToday" | "credits30Days" | "creditsWeekAgo"
+    ) => {
+      for (const key in historical) {
+        if (current[key]) {
+          current[key][field] =
+            current[key].totalCredit - historical[key].totalCredit;
+        }
+      }
+    };
+
+    // Fetch today's stats
+    const [hostResult, projectResult] = await Promise.all([
+      fetchStats("hoststats", today),
+      fetchStats("projectstats", today),
     ]);
 
-    const fetchYesterday = async () => {
-      const [yesterdayHostStats, yesterdayProjectStats] = await Promise.all([
-        fetch(hostStatsUrl(yesterday), {
-          headers: { "x-functions-key": FUNCTIONS_KEY },
-        }),
-        fetch(projectStatsUrl(yesterday), {
-          headers: { "x-functions-key": FUNCTIONS_KEY },
-        }),
-      ]);
-      if (yesterdayHostStats.ok && stats.hostStats) {
-        const yStats = await yesterdayHostStats.json();
-        for (const key in yStats) {
-          if (stats.hostStats[key]) {
-            stats.hostStats[key].creditsToday =
-              stats.hostStats[key].totalCredit - yStats[key].totalCredit;
-            stats.hostStats[key].credits30Days =
-              stats.hostStats[key].creditsToday; // in case monthAgo fetch fails
-          }
-        }
-      }
-      if (yesterdayProjectStats.ok && stats.projectStats) {
-        const yStats = await yesterdayProjectStats.json();
-        for (const key in yStats) {
-          if (stats.projectStats[key]) {
-            stats.projectStats[key].creditsToday =
-              stats.projectStats[key].totalCredit - yStats[key].totalCredit;
-            stats.projectStats[key].credits30Days =
-              stats.projectStats[key].creditsToday;
-          }
-        }
-      }
-    };
-
-    const fetchMonthAgo = async () => {
-      const [monthAgoHostStats, monthAgoProjectStats] = await Promise.all([
-        fetch(hostStatsUrl(monthAgo), {
-          headers: { "x-functions-key": FUNCTIONS_KEY },
-        }),
-        fetch(projectStatsUrl(monthAgo), {
-          headers: { "x-functions-key": FUNCTIONS_KEY },
-        }),
-      ]);
-
-      if (monthAgoHostStats.ok && stats.hostStats) {
-        const yStats = await monthAgoHostStats.json();
-        for (const key in yStats) {
-          if (stats.hostStats[key]) {
-            stats.hostStats[key].credits30Days =
-              stats.hostStats[key].totalCredit - yStats[key].totalCredit;
-          }
-        }
-      }
-      if (monthAgoProjectStats.ok && stats.projectStats) {
-        const yStats = await monthAgoProjectStats.json();
-        for (const key in yStats) {
-          if (stats.projectStats[key]) {
-            stats.projectStats[key].credits30Days =
-              stats.projectStats[key].totalCredit - yStats[key].totalCredit;
-          }
-        }
-      }
-    };
-
-    if (hostStats.ok) {
-      stats.hostStats = await hostStats.json();
+    if (hostResult.ok) {
+      stats.hostStats = hostResult.data;
     } else {
-      console.warn("Failed to fetch", hostStatsUrl, "status", hostStats.status);
+      console.warn("Failed to fetch host stats for today:", hostResult.url);
     }
-    if (projectStats.ok) {
-      stats.projectStats = await projectStats.json();
+
+    if (projectResult.ok) {
+      stats.projectStats = projectResult.data;
     } else {
       console.warn(
-        "Failed to fetch",
-        projectStatsUrl,
-        "status",
-        projectStats.status
+        "Failed to fetch project stats for today:",
+        projectResult.url
       );
     }
 
-    await Promise.all([fetchYesterday(), fetchMonthAgo()]);
+    // Fetch historical stats for credit calculations
+    const [
+      yesterdayHost,
+      yesterdayProject,
+      weekAgoHost,
+      weekAgoProject,
+      monthAgoHost,
+      monthAgoProject,
+    ] = await Promise.all([
+      fetchStats("hoststats", yesterday),
+      fetchStats("projectstats", yesterday),
+      fetchStats("hoststats", weekAgo),
+      fetchStats("projectstats", weekAgo),
+      fetchStats("hoststats", monthAgo),
+      fetchStats("projectstats", monthAgo),
+    ]);
+
+    if (yesterdayHost.ok && stats.hostStats) {
+      updateCredits(stats.hostStats, yesterdayHost.data, "creditsToday");
+    }
+
+    if (yesterdayProject.ok && stats.projectStats) {
+      updateCredits(stats.projectStats, yesterdayProject.data, "creditsToday");
+    }
+
+    if (weekAgoHost.ok && stats.hostStats) {
+      updateCredits(stats.hostStats, weekAgoHost.data, "creditsWeekAgo");
+    }
+
+    if (weekAgoProject.ok && stats.projectStats) {
+      updateCredits(stats.projectStats, weekAgoProject.data, "creditsWeekAgo");
+    }
+
+    if (monthAgoHost.ok && stats.hostStats) {
+      updateCredits(stats.hostStats, monthAgoHost.data, "credits30Days");
+    }
+
+    if (monthAgoProject.ok && stats.projectStats) {
+      updateCredits(stats.projectStats, monthAgoProject.data, "credits30Days");
+    }
   } catch (err) {
     console.error("Error fetching function app stats:", err);
   }
@@ -215,6 +212,13 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
                             class="sortable"
                             style="text-align:right"
                           >
+                            Credits 1 Week <span class="sort-indicator" />
+                          </th>
+                          <th
+                            data-sort="number"
+                            class="sortable"
+                            style="text-align:right"
+                          >
                             Credits 30 Days <span class="sort-indicator" />
                           </th>
                           <th data-sort="date" class="sortable">
@@ -237,6 +241,12 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
                               style="text-align:right"
                             >
                               {formatNumber(value.creditsToday)}
+                            </td>
+                            <td
+                              data-value={value.creditsWeekAgo}
+                              style="text-align:right"
+                            >
+                              {formatNumber(value.creditsWeekAgo)}
                             </td>
                             <td
                               data-value={value.credits30Days}
@@ -284,6 +294,13 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
                             class="sortable"
                             style="text-align:right"
                           >
+                            Credits 1 Week <span class="sort-indicator" />
+                          </th>
+                          <th
+                            data-sort="number"
+                            class="sortable"
+                            style="text-align:right"
+                          >
                             Credits 30 Days <span class="sort-indicator" />
                           </th>
                           <th data-sort="date" class="sortable">
@@ -307,6 +324,12 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
                                 style="text-align:right"
                               >
                                 {formatNumber(value.creditsToday)}
+                              </td>
+                              <td
+                                data-value={value.creditsWeekAgo}
+                                style="text-align:right"
+                              >
+                                {formatNumber(value.creditsWeekAgo)}
                               </td>
                               <td
                                 data-value={value.credits30Days}
