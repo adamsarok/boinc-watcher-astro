@@ -132,17 +132,9 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
     const [
       yesterdayHost,
       yesterdayProject,
-      weekAgoHost,
-      weekAgoProject,
-      monthAgoHost,
-      monthAgoProject,
     ] = await Promise.all([
       fetchStats("hoststats", yesterday),
       fetchStats("projectstats", yesterday),
-      fetchStats("hoststats", weekAgo),
-      fetchStats("projectstats", weekAgo),
-      fetchStats("hoststats", monthAgo),
-      fetchStats("projectstats", monthAgo),
     ]);
 
     if (yesterdayHost.ok && stats.hostStats) {
@@ -151,22 +143,6 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
 
     if (yesterdayProject.ok && stats.projectStats) {
       updateCredits(stats.projectStats, yesterdayProject.data, "creditsToday");
-    }
-
-    if (weekAgoHost.ok && stats.hostStats) {
-      updateCredits(stats.hostStats, weekAgoHost.data, "creditsWeekAgo");
-    }
-
-    if (weekAgoProject.ok && stats.projectStats) {
-      updateCredits(stats.projectStats, weekAgoProject.data, "creditsWeekAgo");
-    }
-
-    if (monthAgoHost.ok && stats.hostStats) {
-      updateCredits(stats.hostStats, monthAgoHost.data, "credits30Days");
-    }
-
-    if (monthAgoProject.ok && stats.projectStats) {
-      updateCredits(stats.projectStats, monthAgoProject.data, "credits30Days");
     }
   } catch (err) {
     console.error("Error fetching function app stats:", err);
