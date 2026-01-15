@@ -4,27 +4,20 @@ import background from "../assets/background.svg";
 
 // Build-time fetch: downloads stats from two function app endpoints using the x-functions-key header.
 
-interface HostStat {
+interface Stat {
   rowKey: string;
-  totalCredit: number;
+  creditTotal: number;
+  creditToday: string;
+  creditThisWeek: number;
+  creditThisMonth: number;
+  creditThisYear: number;
   latestTaskDownloadTime: string;
-  creditsToday?: number;
-  creditsWeekAgo?: number;
-  credits30Days?: number;
-}
-
-interface ProjectStat {
-  rowKey: string;
-  totalCredit: number;
-  latestTaskDownloadTime: string;
-  creditsToday?: number;
-  creditsWeekAgo?: number;
-  credits30Days?: number;
+  timestamp: string;
 }
 
 interface Stats {
-  projectStats: Record<string, ProjectStat> | null;
-  hostStats: Record<string, HostStat> | null;
+  projectStats: Record<string, Stat> | null;
+  hostStats: Record<string, Stat> | null;
 }
 
 // Formatting helper functions
@@ -69,22 +62,8 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
   );
 } else {
   try {
-    // Date helpers
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
-    const weekAgo = new Date(today);
-    weekAgo.setDate(today.getDate() - 7);
-    const monthAgo = new Date(today);
-    monthAgo.setDate(today.getDate() - 30);
-
-    const pad = (n: number) => String(n).padStart(2, "0");
-    const dateStr = (d: Date) =>
-      `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
-
-    // Generic fetch helper
-    const fetchStats = async (endpoint: string, date: Date) => {
-      const url = `${FUNCTION_APP_URI}/api/${endpoint}/${dateStr(date)}`;
+    const fetchStats = async (endpoint: string) => {
+      const url = `${FUNCTION_APP_URI}/api/${endpoint}`;
       const response = await fetch(url, {
         headers: { "x-functions-key": FUNCTIONS_KEY },
       });
@@ -93,56 +72,22 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
         : { ok: false, url };
     };
 
-    // Helper to calculate credit differences
-    const updateCredits = (
-      current: Record<string, any>,
-      historical: Record<string, any>,
-      field: "creditsToday" | "credits30Days" | "creditsWeekAgo"
-    ) => {
-      for (const key in historical) {
-        if (current[key]) {
-          current[key][field] =
-            current[key].totalCredit - historical[key].totalCredit;
-        }
-      }
-    };
-
-    // Fetch today's stats
+    // Fetch latest stats
     const [hostResult, projectResult] = await Promise.all([
-      fetchStats("hoststats", today),
-      fetchStats("projectstats", today),
+      fetchStats("hoststats"),
+      fetchStats("projectstats"),
     ]);
 
     if (hostResult.ok) {
       stats.hostStats = hostResult.data;
     } else {
-      console.warn("Failed to fetch host stats for today:", hostResult.url);
+      console.warn("Failed to fetch host stats:", hostResult.url);
     }
 
     if (projectResult.ok) {
       stats.projectStats = projectResult.data;
     } else {
-      console.warn(
-        "Failed to fetch project stats for today:",
-        projectResult.url
-      );
-    }
-
-    // Fetch historical stats for credit calculations
-    const [
-      yesterdayHost,
-      yesterdayProject,
-    ] = await Promise.all([
-      fetchStats("hoststats", yesterday),
-      fetchStats("projectstats", yesterday),
-    ]);
-
-    if (yesterdayHost.ok && stats.hostStats) {
-      updateCredits(stats.hostStats, yesterdayHost.data, "creditsToday");
-    }
-
-    if (yesterdayProject.ok && stats.projectStats) {
-      updateCredits(stats.projectStats, yesterdayProject.data, "creditsToday");
+      console.warn("Failed to fetch project stats:", projectResult.url);
     }
   } catch (err) {
     console.error("Error fetching function app stats:", err);
@@ -188,14 +133,21 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
                             class="sortable"
                             style="text-align:right"
                           >
-                            Credits 1 Week <span class="sort-indicator" />
+                            Credits This Week <span class="sort-indicator" />
                           </th>
                           <th
                             data-sort="number"
                             class="sortable"
                             style="text-align:right"
                           >
-                            Credits 30 Days <span class="sort-indicator" />
+                            Credits This Month <span class="sort-indicator" />
+                          </th>
+                          <th
+                            data-sort="number"
+                            class="sortable"
+                            style="text-align:right"
+                          >
+                            Credits This Year <span class="sort-indicator" />
                           </th>
                           <th data-sort="date" class="sortable">
                             Latest task download <span class="sort-indicator" />
@@ -207,28 +159,34 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
                           <tr style="border-bottom:1px solid #d0d7de">
                             <td>{value.rowKey}</td>
                             <td
-                              data-value={value.totalCredit}
+                              data-value={value.creditTotal}
                               style="text-align:right"
                             >
-                              {formatNumber(value.totalCredit)}
+                              {formatNumber(value.creditTotal)}
                             </td>
                             <td
-                              data-value={value.creditsToday}
+                              data-value={value.creditToday}
                               style="text-align:right"
                             >
-                              {formatNumber(value.creditsToday)}
+                              {formatNumber(Number(value.creditToday))}
                             </td>
                             <td
-                              data-value={value.creditsWeekAgo}
+                              data-value={value.creditThisWeek}
                               style="text-align:right"
                             >
-                              {formatNumber(value.creditsWeekAgo)}
+                              {formatNumber(value.creditThisWeek)}
                             </td>
                             <td
-                              data-value={value.credits30Days}
+                              data-value={value.creditThisMonth}
                               style="text-align:right"
                             >
-                              {formatNumber(value.credits30Days)}
+                              {formatNumber(value.creditThisMonth)}
+                            </td>
+                            <td
+                              data-value={value.creditThisYear}
+                              style="text-align:right"
+                            >
+                              {formatNumber(value.creditThisYear)}
                             </td>
                             <td data-value={value.latestTaskDownloadTime}>
                               {formatTimestamp(value.latestTaskDownloadTime)}
@@ -270,14 +228,21 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
                             class="sortable"
                             style="text-align:right"
                           >
-                            Credits 1 Week <span class="sort-indicator" />
+                            Credits This Week <span class="sort-indicator" />
                           </th>
                           <th
                             data-sort="number"
                             class="sortable"
                             style="text-align:right"
                           >
-                            Credits 30 Days <span class="sort-indicator" />
+                            Credits This Month <span class="sort-indicator" />
+                          </th>
+                          <th
+                            data-sort="number"
+                            class="sortable"
+                            style="text-align:right"
+                          >
+                            Credits This Year <span class="sort-indicator" />
                           </th>
                           <th data-sort="date" class="sortable">
                             Latest task download <span class="sort-indicator" />
@@ -290,28 +255,34 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
                             <tr style="border-bottom:1px solid #d0d7de">
                               <td>{value.rowKey}</td>
                               <td
-                                data-value={value.totalCredit}
+                                data-value={value.creditTotal}
                                 style="text-align:right"
                               >
-                                {formatNumber(value.totalCredit)}
+                                {formatNumber(value.creditTotal)}
                               </td>
                               <td
-                                data-value={value.creditsToday}
+                                data-value={value.creditToday}
                                 style="text-align:right"
                               >
-                                {formatNumber(value.creditsToday)}
+                                {formatNumber(Number(value.creditToday))}
                               </td>
                               <td
-                                data-value={value.creditsWeekAgo}
+                                data-value={value.creditThisWeek}
                                 style="text-align:right"
                               >
-                                {formatNumber(value.creditsWeekAgo)}
+                                {formatNumber(value.creditThisWeek)}
                               </td>
                               <td
-                                data-value={value.credits30Days}
+                                data-value={value.creditThisMonth}
                                 style="text-align:right"
                               >
-                                {formatNumber(value.credits30Days)}
+                                {formatNumber(value.creditThisMonth)}
+                              </td>
+                              <td
+                                data-value={value.creditThisYear}
+                                style="text-align:right"
+                              >
+                                {formatNumber(value.creditThisYear)}
                               </td>
                               <td data-value={value.latestTaskDownloadTime}>
                                 {formatTimestamp(value.latestTaskDownloadTime)}
@@ -452,31 +423,33 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
 
         headers.forEach((header, columnIndex) => {
           header.addEventListener("click", () => {
-            const sortType = header.dataset.sort;
-            const currentOrder = header.dataset.order || "none";
+            const sortType = (header as HTMLElement).dataset.sort;
+            const currentOrder =
+              (header as HTMLElement).dataset.order || "none";
             const newOrder = currentOrder === "asc" ? "desc" : "asc";
 
             // Remove sorting from other headers
-            headers.forEach((h) => delete h.dataset.order);
-            header.dataset.order = newOrder;
+            headers.forEach((h) => delete (h as HTMLElement).dataset.order);
+            (header as HTMLElement).dataset.order = newOrder;
 
             // Get rows and sort
+            if (!tbody) return;
             const rows = Array.from(tbody.querySelectorAll("tr"));
             rows.sort((a, b) => {
-              const cellA = a.children[columnIndex];
-              const cellB = b.children[columnIndex];
+              const cellA = a.children[columnIndex] as HTMLElement;
+              const cellB = b.children[columnIndex] as HTMLElement;
 
               let valueA, valueB;
 
               if (sortType === "number") {
-                valueA = parseFloat(cellA.dataset.value) || 0;
-                valueB = parseFloat(cellB.dataset.value) || 0;
+                valueA = parseFloat(cellA.dataset.value || "0") || 0;
+                valueB = parseFloat(cellB.dataset.value || "0") || 0;
               } else if (sortType === "date") {
                 valueA = new Date(cellA.dataset.value || 0).getTime();
                 valueB = new Date(cellB.dataset.value || 0).getTime();
               } else {
-                valueA = cellA.textContent.trim().toLowerCase();
-                valueB = cellB.textContent.trim().toLowerCase();
+                valueA = cellA.textContent?.trim().toLowerCase() || "";
+                valueB = cellB.textContent?.trim().toLowerCase() || "";
               }
 
               if (valueA < valueB) return newOrder === "asc" ? -1 : 1;
