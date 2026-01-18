@@ -394,6 +394,7 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
     th {
       text-align: left;
       font-weight: 600;
+      white-space: nowrap;
     }
 
     tbody tr:nth-child(even) {
@@ -454,7 +455,13 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
 
     .sort-indicator {
       margin-left: 0.5rem;
-      opacity: 0.5;
+      display: inline-block;
+      width: 0.75rem;
+    }
+
+    .sort-indicator::after {
+      content: "○";
+      opacity: 0.3;
     }
 
     th.sortable[data-order="asc"] .sort-indicator::after {
