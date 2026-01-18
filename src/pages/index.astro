@@ -80,12 +80,38 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
 
     if (hostResult.ok) {
       stats.hostStats = hostResult.data;
+      // Add total row
+      const hostValues = Object.values(stats.hostStats);
+      const hostTotal: Stat = {
+        rowKey: "Total",
+        creditTotal: hostValues.reduce((sum, stat) => sum + stat.creditTotal, 0),
+        creditToday: hostValues.reduce((sum, stat) => sum + Number(stat.creditToday), 0).toString(),
+        creditThisWeek: hostValues.reduce((sum, stat) => sum + stat.creditThisWeek, 0),
+        creditThisMonth: hostValues.reduce((sum, stat) => sum + stat.creditThisMonth, 0),
+        creditThisYear: hostValues.reduce((sum, stat) => sum + stat.creditThisYear, 0),
+        latestTaskDownloadTime: "",
+        timestamp: ""
+      };
+      stats.hostStats["_total"] = hostTotal;
     } else {
       console.warn("Failed to fetch host stats:", hostResult.url);
     }
 
     if (projectResult.ok) {
       stats.projectStats = projectResult.data;
+      // Add total row
+      const projectValues = Object.values(stats.projectStats);
+      const projectTotal: Stat = {
+        rowKey: "Total",
+        creditTotal: projectValues.reduce((sum, stat) => sum + stat.creditTotal, 0),
+        creditToday: projectValues.reduce((sum, stat) => sum + Number(stat.creditToday), 0).toString(),
+        creditThisWeek: projectValues.reduce((sum, stat) => sum + stat.creditThisWeek, 0),
+        creditThisMonth: projectValues.reduce((sum, stat) => sum + stat.creditThisMonth, 0),
+        creditThisYear: projectValues.reduce((sum, stat) => sum + stat.creditThisYear, 0),
+        latestTaskDownloadTime: "",
+        timestamp: ""
+      };
+      stats.projectStats["_total"] = projectTotal;
     } else {
       console.warn("Failed to fetch project stats:", projectResult.url);
     }
@@ -155,44 +181,51 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
                         </tr>
                       </thead>
                       <tbody>
-                        {Object.entries(stats.hostStats).map(([key, value]) => (
-                          <tr style="border-bottom:1px solid #d0d7de">
-                            <td>{value.rowKey}</td>
-                            <td
-                              data-value={value.creditTotal}
-                              style="text-align:right"
+                        {Object.entries(stats.hostStats).map(([key, value]) => {
+                          const isTotal = key === "_total";
+                          return (
+                            <tr
+                              style={isTotal
+                                ? "background:#f0f0f0;font-weight:600;border-top:2px solid #0969da"
+                                : "border-bottom:1px solid #d0d7de"}
                             >
-                              {formatNumber(value.creditTotal)}
-                            </td>
-                            <td
-                              data-value={value.creditToday}
-                              style="text-align:right"
-                            >
-                              {formatNumber(Number(value.creditToday))}
-                            </td>
-                            <td
-                              data-value={value.creditThisWeek}
-                              style="text-align:right"
-                            >
-                              {formatNumber(value.creditThisWeek)}
-                            </td>
-                            <td
-                              data-value={value.creditThisMonth}
-                              style="text-align:right"
-                            >
-                              {formatNumber(value.creditThisMonth)}
-                            </td>
-                            <td
-                              data-value={value.creditThisYear}
-                              style="text-align:right"
-                            >
-                              {formatNumber(value.creditThisYear)}
-                            </td>
-                            <td data-value={value.latestTaskDownloadTime}>
-                              {formatTimestamp(value.latestTaskDownloadTime)}
-                            </td>
-                          </tr>
-                        ))}
+                              <td>{value.rowKey}</td>
+                              <td
+                                data-value={value.creditTotal}
+                                style="text-align:right"
+                              >
+                                {formatNumber(value.creditTotal)}
+                              </td>
+                              <td
+                                data-value={value.creditToday}
+                                style="text-align:right"
+                              >
+                                {formatNumber(Number(value.creditToday))}
+                              </td>
+                              <td
+                                data-value={value.creditThisWeek}
+                                style="text-align:right"
+                              >
+                                {formatNumber(value.creditThisWeek)}
+                              </td>
+                              <td
+                                data-value={value.creditThisMonth}
+                                style="text-align:right"
+                              >
+                                {formatNumber(value.creditThisMonth)}
+                              </td>
+                              <td
+                                data-value={value.creditThisYear}
+                                style="text-align:right"
+                              >
+                                {formatNumber(value.creditThisYear)}
+                              </td>
+                              <td data-value={value.latestTaskDownloadTime}>
+                                {formatTimestamp(value.latestTaskDownloadTime)}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -251,44 +284,51 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
                       </thead>
                       <tbody>
                         {Object.entries(stats.projectStats).map(
-                          ([key, value]) => (
-                            <tr style="border-bottom:1px solid #d0d7de">
-                              <td>{value.rowKey}</td>
-                              <td
-                                data-value={value.creditTotal}
-                                style="text-align:right"
+                          ([key, value]) => {
+                            const isTotal = key === "_total";
+                            return (
+                              <tr
+                                style={isTotal
+                                  ? "background:#f0f0f0;font-weight:600;border-top:2px solid #0969da"
+                                  : "border-bottom:1px solid #d0d7de"}
                               >
-                                {formatNumber(value.creditTotal)}
-                              </td>
-                              <td
-                                data-value={value.creditToday}
-                                style="text-align:right"
-                              >
-                                {formatNumber(Number(value.creditToday))}
-                              </td>
-                              <td
-                                data-value={value.creditThisWeek}
-                                style="text-align:right"
-                              >
-                                {formatNumber(value.creditThisWeek)}
-                              </td>
-                              <td
-                                data-value={value.creditThisMonth}
-                                style="text-align:right"
-                              >
-                                {formatNumber(value.creditThisMonth)}
-                              </td>
-                              <td
-                                data-value={value.creditThisYear}
-                                style="text-align:right"
-                              >
-                                {formatNumber(value.creditThisYear)}
-                              </td>
-                              <td data-value={value.latestTaskDownloadTime}>
-                                {formatTimestamp(value.latestTaskDownloadTime)}
-                              </td>
-                            </tr>
-                          )
+                                <td>{value.rowKey}</td>
+                                <td
+                                  data-value={value.creditTotal}
+                                  style="text-align:right"
+                                >
+                                  {formatNumber(value.creditTotal)}
+                                </td>
+                                <td
+                                  data-value={value.creditToday}
+                                  style="text-align:right"
+                                >
+                                  {formatNumber(Number(value.creditToday))}
+                                </td>
+                                <td
+                                  data-value={value.creditThisWeek}
+                                  style="text-align:right"
+                                >
+                                  {formatNumber(value.creditThisWeek)}
+                                </td>
+                                <td
+                                  data-value={value.creditThisMonth}
+                                  style="text-align:right"
+                                >
+                                  {formatNumber(value.creditThisMonth)}
+                                </td>
+                                <td
+                                  data-value={value.creditThisYear}
+                                  style="text-align:right"
+                                >
+                                  {formatNumber(value.creditThisYear)}
+                                </td>
+                                <td data-value={value.latestTaskDownloadTime}>
+                                  {formatTimestamp(value.latestTaskDownloadTime)}
+                                </td>
+                              </tr>
+                            );
+                          }
                         )}
                       </tbody>
                     </table>
@@ -328,11 +368,12 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
       border-radius: 4px;
       border: 1px solid #000000;
       width: 100%;
+      font-size: 0.85rem;
     }
 
     td,
     th {
-      padding: 0.75rem;
+      padding: 0.35rem 0.5rem;
       border: 1px solid #e1e4e8;
     }
 
