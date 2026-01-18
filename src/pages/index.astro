@@ -79,9 +79,9 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
     ]);
 
     if (hostResult.ok) {
-      stats.hostStats = hostResult.data;
-      // Add total row
-      const hostValues = Object.values(stats.hostStats);
+      const hostData = hostResult.data;
+      // Calculate total row
+      const hostValues = Object.values(hostData) as Stat[];
       const hostTotal: Stat = {
         rowKey: "Total",
         creditTotal: hostValues.reduce((sum, stat) => sum + stat.creditTotal, 0),
@@ -92,15 +92,16 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
         latestTaskDownloadTime: "",
         timestamp: ""
       };
-      stats.hostStats["_total"] = hostTotal;
+      // Put Total first
+      stats.hostStats = { "_total": hostTotal, ...hostData };
     } else {
       console.warn("Failed to fetch host stats:", hostResult.url);
     }
 
     if (projectResult.ok) {
-      stats.projectStats = projectResult.data;
-      // Add total row
-      const projectValues = Object.values(stats.projectStats);
+      const projectData = projectResult.data;
+      // Calculate total row
+      const projectValues = Object.values(projectData) as Stat[];
       const projectTotal: Stat = {
         rowKey: "Total",
         creditTotal: projectValues.reduce((sum, stat) => sum + stat.creditTotal, 0),
@@ -111,7 +112,8 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
         latestTaskDownloadTime: "",
         timestamp: ""
       };
-      stats.projectStats["_total"] = projectTotal;
+      // Put Total first
+      stats.projectStats = { "_total": projectTotal, ...projectData };
     } else {
       console.warn("Failed to fetch project stats:", projectResult.url);
     }
@@ -476,7 +478,19 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
             // Get rows and sort
             if (!tbody) return;
             const rows = Array.from(tbody.querySelectorAll("tr"));
-            rows.sort((a, b) => {
+            
+            // Separate Total row from other rows
+            const totalRow = rows.find(row => {
+              const firstCell = row.children[0] as HTMLElement;
+              return firstCell.textContent?.trim() === "Total";
+            });
+            const dataRows = rows.filter(row => {
+              const firstCell = row.children[0] as HTMLElement;
+              return firstCell.textContent?.trim() !== "Total";
+            });
+            
+            // Sort only data rows
+            dataRows.sort((a, b) => {
               const cellA = a.children[columnIndex] as HTMLElement;
               const cellB = b.children[columnIndex] as HTMLElement;
 
@@ -498,8 +512,9 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
               return 0;
             });
 
-            // Reappend sorted rows
-            rows.forEach((row) => tbody.appendChild(row));
+            // Reappend Total row first, then sorted data rows
+            if (totalRow) tbody.appendChild(totalRow);
+            dataRows.forEach((row) => tbody.appendChild(row));
           });
         });
       });
