@@ -183,7 +183,13 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
                         </tr>
                       </thead>
                       <tbody>
-                        {Object.entries(stats.hostStats).map(([key, value]) => {
+                        {Object.entries(stats.hostStats)
+                          .sort(([keyA], [keyB]) => {
+                            if (keyA === "_total") return -1;
+                            if (keyB === "_total") return 1;
+                            return 0;
+                          })
+                          .map(([key, value]) => {
                           const isTotal = key === "_total";
                           return (
                             <tr
@@ -285,7 +291,13 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
                         </tr>
                       </thead>
                       <tbody>
-                        {Object.entries(stats.projectStats).map(
+                        {Object.entries(stats.projectStats)
+                          .sort(([keyA], [keyB]) => {
+                            if (keyA === "_total") return -1;
+                            if (keyB === "_total") return 1;
+                            return 0;
+                          })
+                          .map(
                           ([key, value]) => {
                             const isTotal = key === "_total";
                             return (
