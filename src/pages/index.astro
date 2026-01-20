@@ -79,8 +79,6 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
       fetchStats("projectstats"),
     ]);
 
-
-
     if (hostResult.ok) {
       const hostData = hostResult.data;
       // Calculate total row
@@ -139,7 +137,7 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
     <div class="content" id="content">
       <img id="background" src={background.src} alt="" fetchpriority="high" />
       <h1 id="title">BOINC watcher</h1>
-      <a>Last refresh date: {lastRefresh ? lastRefresh.toLocaleString() : ""}</a>
+      <a>Last refresh date: {lastRefresh ? lastRefresh.toLocaleString("hu-HU") : ""}</a>
       <section style="padding:1rem 0">
         {
           stats.projectStats || stats.hostStats ? (
