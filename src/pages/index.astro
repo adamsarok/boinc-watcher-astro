@@ -55,6 +55,7 @@ const FUNCTIONS_KEY = import.meta.env.X_FUNCTIONS_KEY;
 
 // Stats object will be available to the template at build time.
 let stats: Stats = { projectStats: null, hostStats: null };
+let lastRefresh: Date | undefined;
 
 if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
   console.warn(
@@ -78,6 +79,8 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
       fetchStats("projectstats"),
     ]);
 
+
+
     if (hostResult.ok) {
       const hostData = hostResult.data;
       // Calculate total row
@@ -92,6 +95,10 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
         latestTaskDownloadTime: "",
         timestamp: ""
       };
+      lastRefresh = hostValues.reduce((latest, stat) => {
+        const statTime = new Date(stat.timestamp);
+        return statTime > latest ? statTime : latest;
+      }, new Date(0));
       // Put Total first
       stats.hostStats = { "_total": hostTotal, ...hostData };
     } else {
@@ -112,6 +119,10 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
         latestTaskDownloadTime: "",
         timestamp: ""
       };
+      lastRefresh = projectValues.reduce((latest, stat) => {
+        const statTime = new Date(stat.timestamp);
+        return statTime > latest ? statTime : latest;
+      }, new Date(0));
       // Put Total first
       stats.projectStats = { "_total": projectTotal, ...projectData };
     } else {
@@ -128,6 +139,7 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
     <div class="content" id="content">
       <img id="background" src={background.src} alt="" fetchpriority="high" />
       <h1 id="title">BOINC watcher</h1>
+      <a>Last refresh date: {lastRefresh ? lastRefresh.toLocaleString() : ""}</a>
       <section style="padding:1rem 0">
         {
           stats.projectStats || stats.hostStats ? (
