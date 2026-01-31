@@ -32,8 +32,8 @@ try {
 
     // Calculate total row
     const projectTotal: AppRuntimeTableEntity = {
-      partitionKey: "",
-      rowKey: "Total",
+      partitionKey: "Total",
+      rowKey: "",
       cpuHoursTotal: projectValues.reduce(
         (sum, stat) => sum + stat.cpuHoursTotal,
         0,
