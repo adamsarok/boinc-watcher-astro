@@ -1,0 +1,217 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Navbar from "../components/Navbar.astro";
+import background from "../assets/background.svg";
+import { formatNumber, formatTimestamp } from "../utils/formatter";
+import { fetchStats } from "../utils/function-app";
+import "../styles/table.css";
+
+interface AppRuntimeTableEntity {
+  partitionKey: string;
+  rowKey: string;
+  cpuHoursTotal: number;
+  cpuHoursToday: string;
+  cpuHoursThisWeek: number;
+  cpuHoursThisMonth: number;
+  cpuHoursThisYear: number;
+  timestamp: string;
+}
+
+interface AppRuntimes {
+  projectStats: Record<string, AppRuntimeTableEntity> | null;
+}
+
+let appRuntimes: AppRuntimes = { projectStats: null };
+let lastRefresh: Date | undefined;
+
+try {
+  const result = await fetchStats("appruntimes");
+
+  if (result.ok) {
+    const projectData = result.data;
+    const projectValues = Object.values(projectData) as AppRuntimeTableEntity[];
+
+    // Calculate total row
+    const projectTotal: AppRuntimeTableEntity = {
+      partitionKey: "Total",
+      rowKey: "",
+      cpuHoursTotal: projectValues.reduce(
+        (sum, stat) => sum + stat.cpuHoursTotal,
+        0,
+      ),
+      cpuHoursToday: projectValues
+        .reduce((sum, stat) => sum + Number(stat.cpuHoursToday), 0)
+        .toString(),
+      cpuHoursThisWeek: projectValues.reduce(
+        (sum, stat) => sum + stat.cpuHoursThisWeek,
+        0,
+      ),
+      cpuHoursThisMonth: projectValues.reduce(
+        (sum, stat) => sum + stat.cpuHoursThisMonth,
+        0,
+      ),
+      cpuHoursThisYear: projectValues.reduce(
+        (sum, stat) => sum + stat.cpuHoursThisYear,
+        0,
+      ),
+      timestamp: "",
+    };
+
+    lastRefresh = projectValues.reduce((latest, stat) => {
+      const statTime = new Date(stat.timestamp);
+      return statTime > latest ? statTime : latest;
+    }, new Date(0));
+
+    // Put Total first
+    appRuntimes.projectStats = { _total: projectTotal, ...projectData };
+  } else {
+    console.warn("Failed to fetch app runtime stats");
+  }
+} catch (err) {
+  console.error("Error fetching app runtime stats:", err);
+}
+---
+
+<Layout>
+  <Navbar />
+  <div class="page-container">
+    <div class="content" id="content">
+      <img id="background" src={background.src} alt="" fetchpriority="high" />
+      <h1 id="title">CPU Time Statistics</h1>
+      <a
+        >Last refresh date: {
+          lastRefresh ? lastRefresh.toLocaleString("hu-HU") : ""
+        }</a
+      >
+      <section style="padding:1rem 0">
+        {
+          appRuntimes.projectStats ? (
+            <div>
+              <h2>Project CPU Time</h2>
+              <div style="overflow-x:auto">
+                <table class="sortable-table" data-table="appruntime">
+                  <thead>
+                    <tr style="background:#0969da;color:#fff">
+                      <th data-sort="string" class="sortable">
+                        Host Name <span class="sort-indicator" />
+                      </th>
+                      <th data-sort="string" class="sortable">
+                        Project Name <span class="sort-indicator" />
+                      </th>
+                      <th data-sort="string" class="sortable">
+                        App Name <span class="sort-indicator" />
+                      </th>
+                      <th
+                        data-sort="number"
+                        class="sortable"
+                        style="text-align:right"
+                      >
+                        Total CPU Hours <span class="sort-indicator" />
+                      </th>
+                      <th
+                        data-sort="number"
+                        class="sortable"
+                        style="text-align:right"
+                      >
+                        CPU Hours Today <span class="sort-indicator" />
+                      </th>
+                      <th
+                        data-sort="number"
+                        class="sortable"
+                        style="text-align:right"
+                      >
+                        CPU Hours This Week <span class="sort-indicator" />
+                      </th>
+                      <th
+                        data-sort="number"
+                        class="sortable"
+                        style="text-align:right"
+                      >
+                        CPU Hours This Month <span class="sort-indicator" />
+                      </th>
+                      <th
+                        data-sort="number"
+                        class="sortable"
+                        style="text-align:right"
+                      >
+                        CPU Hours This Year <span class="sort-indicator" />
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(appRuntimes.projectStats)
+                      .sort(([keyA], [keyB]) => {
+                        if (keyA === "_total") return -1;
+                        if (keyB === "_total") return 1;
+                        return 0;
+                      })
+                      .map(([key, value]) => {
+                        const isTotal = key === "_total";
+                        return (
+                          <tr
+                            style={
+                              isTotal
+                                ? "background:#f0f0f0;font-weight:600;border-top:2px solid #0969da"
+                                : "border-bottom:1px solid #d0d7de"
+                            }
+                          >
+                            <td>{value.partitionKey}</td>
+                            <td>{value.rowKey.split("|")[0]}</td>
+                            <td>{value.rowKey.split("|")[1]}</td>
+                            <td
+                              data-value={value.cpuHoursTotal}
+                              style="text-align:right"
+                            >
+                              {formatNumber(value.cpuHoursTotal)}
+                            </td>
+                            <td
+                              data-value={value.cpuHoursToday}
+                              style="text-align:right"
+                            >
+                              {formatNumber(Number(value.cpuHoursToday))}
+                            </td>
+                            <td
+                              data-value={value.cpuHoursThisWeek}
+                              style="text-align:right"
+                            >
+                              {formatNumber(value.cpuHoursThisWeek)}
+                            </td>
+                            <td
+                              data-value={value.cpuHoursThisMonth}
+                              style="text-align:right"
+                            >
+                              {formatNumber(value.cpuHoursThisMonth)}
+                            </td>
+                            <td
+                              data-value={value.cpuHoursThisYear}
+                              style="text-align:right"
+                            >
+                              {formatNumber(value.cpuHoursThisYear)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <p>
+              <em>
+                No CPU time stats available at build time. Ensure Function App
+                is configured correctly.
+              </em>
+            </p>
+          )
+        }
+      </section>
+    </div>
+  </div>
+
+  <style is:global></style>
+
+  <script>
+    import { initTableSorting } from "../utils/table-sorting";
+    initTableSorting();
+  </script>
+</Layout>

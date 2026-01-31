@@ -1,0 +1,47 @@
+---
+const currentPath = Astro.url.pathname.replace(/\/$/, "") || "/";
+---
+
+<nav>
+  <div class="nav-container">
+    <a href="/" class={currentPath === "/" ? "active" : ""}>Home</a>
+    <a href="/cpu-time" class={currentPath === "/cpu-time" ? "active" : ""}>CPU Time</a>
+  </div>
+</nav>
+
+<style>
+  nav {
+    background-color: #0969da;
+    padding: 1rem 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    position: relative;
+    z-index: 100;
+  }
+
+  .nav-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1rem;
+    display: flex;
+    gap: 2rem;
+  }
+
+  a {
+    color: white;
+    text-decoration: none;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+    cursor: pointer;
+  }
+
+  a:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  a.active {
+    background-color: rgba(255, 255, 255, 0.2);
+    font-weight: 600;
+  }
+</style>

@@ -1,6 +1,10 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import Navbar from "../components/Navbar.astro";
 import background from "../assets/background.svg";
+import { formatNumber, formatTimestamp } from "../utils/formatter";
+import { fetchStats } from "../utils/function-app";
+import "../styles/table.css";
 
 // Build-time fetch: downloads stats from two function app endpoints using the x-functions-key header.
 
@@ -20,124 +24,105 @@ interface Stats {
   hostStats: Record<string, Stat> | null;
 }
 
-// Formatting helper functions
-const formatNumber = (value: number | undefined): string => {
-  if (value === undefined) return "";
-  const rounded = Math.round(value);
-  return rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-};
-
-const formatTimestamp = (timestamp: string): string => {
-  if (!timestamp) return "";
-
-  try {
-    const date = new Date(timestamp);
-    // Check if date is invalid or is Unix epoch (Jan 1, 1970)
-    if (isNaN(date.getTime()) || date.getFullYear() === 1970) {
-      return "";
-    }
-    return date.toLocaleString("hu-HU", {
-      year: "numeric",
-      month: "numeric",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    });
-  } catch {
-    return "";
-  }
-};
-
-const FUNCTION_APP_URI = import.meta.env.FUNCTION_APP_URI;
-const FUNCTIONS_KEY = import.meta.env.X_FUNCTIONS_KEY;
-
 // Stats object will be available to the template at build time.
 let stats: Stats = { projectStats: null, hostStats: null };
 let lastRefresh: Date | undefined;
 
-if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
-  console.warn(
-    "FunctionAppUri or x-functions-key not set; skipping build-time fetch for function app stats."
-  );
-} else {
-  try {
-    const fetchStats = async (endpoint: string) => {
-      const url = `${FUNCTION_APP_URI}/api/${endpoint}`;
-      const response = await fetch(url, {
-        headers: { "x-functions-key": FUNCTIONS_KEY },
-      });
-      return response.ok
-        ? { ok: true, data: await response.json() }
-        : { ok: false, url };
+try {
+  // Fetch latest stats
+  const [hostResult, projectResult] = await Promise.all([
+    fetchStats("hoststats"),
+    fetchStats("projectstats"),
+  ]);
+
+  if (hostResult.ok) {
+    const hostData = hostResult.data;
+    // Calculate total row
+    const hostValues = Object.values(hostData) as Stat[];
+    const hostTotal: Stat = {
+      rowKey: "Total",
+      creditTotal: hostValues.reduce((sum, stat) => sum + stat.creditTotal, 0),
+      creditToday: hostValues
+        .reduce((sum, stat) => sum + Number(stat.creditToday), 0)
+        .toString(),
+      creditThisWeek: hostValues.reduce(
+        (sum, stat) => sum + stat.creditThisWeek,
+        0,
+      ),
+      creditThisMonth: hostValues.reduce(
+        (sum, stat) => sum + stat.creditThisMonth,
+        0,
+      ),
+      creditThisYear: hostValues.reduce(
+        (sum, stat) => sum + stat.creditThisYear,
+        0,
+      ),
+      latestTaskDownloadTime: "",
+      timestamp: "",
     };
-
-    // Fetch latest stats
-    const [hostResult, projectResult] = await Promise.all([
-      fetchStats("hoststats"),
-      fetchStats("projectstats"),
-    ]);
-
-    if (hostResult.ok) {
-      const hostData = hostResult.data;
-      // Calculate total row
-      const hostValues = Object.values(hostData) as Stat[];
-      const hostTotal: Stat = {
-        rowKey: "Total",
-        creditTotal: hostValues.reduce((sum, stat) => sum + stat.creditTotal, 0),
-        creditToday: hostValues.reduce((sum, stat) => sum + Number(stat.creditToday), 0).toString(),
-        creditThisWeek: hostValues.reduce((sum, stat) => sum + stat.creditThisWeek, 0),
-        creditThisMonth: hostValues.reduce((sum, stat) => sum + stat.creditThisMonth, 0),
-        creditThisYear: hostValues.reduce((sum, stat) => sum + stat.creditThisYear, 0),
-        latestTaskDownloadTime: "",
-        timestamp: ""
-      };
-      lastRefresh = hostValues.reduce((latest, stat) => {
-        const statTime = new Date(stat.timestamp);
-        return statTime > latest ? statTime : latest;
-      }, new Date(0));
-      // Put Total first
-      stats.hostStats = { "_total": hostTotal, ...hostData };
-    } else {
-      console.warn("Failed to fetch host stats:", hostResult.url);
-    }
-
-    if (projectResult.ok) {
-      const projectData = projectResult.data;
-      // Calculate total row
-      const projectValues = Object.values(projectData) as Stat[];
-      const projectTotal: Stat = {
-        rowKey: "Total",
-        creditTotal: projectValues.reduce((sum, stat) => sum + stat.creditTotal, 0),
-        creditToday: projectValues.reduce((sum, stat) => sum + Number(stat.creditToday), 0).toString(),
-        creditThisWeek: projectValues.reduce((sum, stat) => sum + stat.creditThisWeek, 0),
-        creditThisMonth: projectValues.reduce((sum, stat) => sum + stat.creditThisMonth, 0),
-        creditThisYear: projectValues.reduce((sum, stat) => sum + stat.creditThisYear, 0),
-        latestTaskDownloadTime: "",
-        timestamp: ""
-      };
-      lastRefresh = projectValues.reduce((latest, stat) => {
-        const statTime = new Date(stat.timestamp);
-        return statTime > latest ? statTime : latest;
-      }, new Date(0));
-      // Put Total first
-      stats.projectStats = { "_total": projectTotal, ...projectData };
-    } else {
-      console.warn("Failed to fetch project stats:", projectResult.url);
-    }
-  } catch (err) {
-    console.error("Error fetching function app stats:", err);
+    lastRefresh = hostValues.reduce((latest, stat) => {
+      const statTime = new Date(stat.timestamp);
+      return statTime > latest ? statTime : latest;
+    }, new Date(0));
+    // Put Total first
+    stats.hostStats = { _total: hostTotal, ...hostData };
+  } else {
+    console.warn("Failed to fetch host stats");
   }
+
+  if (projectResult.ok) {
+    const projectData = projectResult.data;
+    // Calculate total row
+    const projectValues = Object.values(projectData) as Stat[];
+    const projectTotal: Stat = {
+      rowKey: "Total",
+      creditTotal: projectValues.reduce(
+        (sum, stat) => sum + stat.creditTotal,
+        0,
+      ),
+      creditToday: projectValues
+        .reduce((sum, stat) => sum + Number(stat.creditToday), 0)
+        .toString(),
+      creditThisWeek: projectValues.reduce(
+        (sum, stat) => sum + stat.creditThisWeek,
+        0,
+      ),
+      creditThisMonth: projectValues.reduce(
+        (sum, stat) => sum + stat.creditThisMonth,
+        0,
+      ),
+      creditThisYear: projectValues.reduce(
+        (sum, stat) => sum + stat.creditThisYear,
+        0,
+      ),
+      latestTaskDownloadTime: "",
+      timestamp: "",
+    };
+    lastRefresh = projectValues.reduce((latest, stat) => {
+      const statTime = new Date(stat.timestamp);
+      return statTime > latest ? statTime : latest;
+    }, new Date(0));
+    // Put Total first
+    stats.projectStats = { _total: projectTotal, ...projectData };
+  } else {
+    console.warn("Failed to fetch project stats");
+  }
+} catch (err) {
+  console.error("Error fetching function app stats:", err);
 }
 ---
 
 <Layout>
+  <Navbar />
   <div class="page-container">
     <div class="content" id="content">
       <img id="background" src={background.src} alt="" fetchpriority="high" />
       <h1 id="title">BOINC watcher</h1>
-      <a>Last refresh date: {lastRefresh ? lastRefresh.toLocaleString("hu-HU") : ""}</a>
+      <a
+        >Last refresh date: {
+          lastRefresh ? lastRefresh.toLocaleString("hu-HU") : ""
+        }</a
+      >
       <section style="padding:1rem 0">
         {
           stats.projectStats || stats.hostStats ? (
@@ -200,50 +185,54 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
                             return 0;
                           })
                           .map(([key, value]) => {
-                          const isTotal = key === "_total";
-                          return (
-                            <tr
-                              style={isTotal
-                                ? "background:#f0f0f0;font-weight:600;border-top:2px solid #0969da"
-                                : "border-bottom:1px solid #d0d7de"}
-                            >
-                              <td>{value.rowKey}</td>
-                              <td
-                                data-value={value.creditTotal}
-                                style="text-align:right"
+                            const isTotal = key === "_total";
+                            return (
+                              <tr
+                                style={
+                                  isTotal
+                                    ? "background:#f0f0f0;font-weight:600;border-top:2px solid #0969da"
+                                    : "border-bottom:1px solid #d0d7de"
+                                }
                               >
-                                {formatNumber(value.creditTotal)}
-                              </td>
-                              <td
-                                data-value={value.creditToday}
-                                style="text-align:right"
-                              >
-                                {formatNumber(Number(value.creditToday))}
-                              </td>
-                              <td
-                                data-value={value.creditThisWeek}
-                                style="text-align:right"
-                              >
-                                {formatNumber(value.creditThisWeek)}
-                              </td>
-                              <td
-                                data-value={value.creditThisMonth}
-                                style="text-align:right"
-                              >
-                                {formatNumber(value.creditThisMonth)}
-                              </td>
-                              <td
-                                data-value={value.creditThisYear}
-                                style="text-align:right"
-                              >
-                                {formatNumber(value.creditThisYear)}
-                              </td>
-                              <td data-value={value.latestTaskDownloadTime}>
-                                {formatTimestamp(value.latestTaskDownloadTime)}
-                              </td>
-                            </tr>
-                          );
-                        })}
+                                <td>{value.rowKey}</td>
+                                <td
+                                  data-value={value.creditTotal}
+                                  style="text-align:right"
+                                >
+                                  {formatNumber(value.creditTotal)}
+                                </td>
+                                <td
+                                  data-value={value.creditToday}
+                                  style="text-align:right"
+                                >
+                                  {formatNumber(Number(value.creditToday))}
+                                </td>
+                                <td
+                                  data-value={value.creditThisWeek}
+                                  style="text-align:right"
+                                >
+                                  {formatNumber(value.creditThisWeek)}
+                                </td>
+                                <td
+                                  data-value={value.creditThisMonth}
+                                  style="text-align:right"
+                                >
+                                  {formatNumber(value.creditThisMonth)}
+                                </td>
+                                <td
+                                  data-value={value.creditThisYear}
+                                  style="text-align:right"
+                                >
+                                  {formatNumber(value.creditThisYear)}
+                                </td>
+                                <td data-value={value.latestTaskDownloadTime}>
+                                  {formatTimestamp(
+                                    value.latestTaskDownloadTime,
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
                       </tbody>
                     </table>
                   </div>
@@ -307,14 +296,15 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
                             if (keyB === "_total") return 1;
                             return 0;
                           })
-                          .map(
-                          ([key, value]) => {
+                          .map(([key, value]) => {
                             const isTotal = key === "_total";
                             return (
                               <tr
-                                style={isTotal
-                                  ? "background:#f0f0f0;font-weight:600;border-top:2px solid #0969da"
-                                  : "border-bottom:1px solid #d0d7de"}
+                                style={
+                                  isTotal
+                                    ? "background:#f0f0f0;font-weight:600;border-top:2px solid #0969da"
+                                    : "border-bottom:1px solid #d0d7de"
+                                }
                               >
                                 <td>{value.rowKey}</td>
                                 <td
@@ -348,12 +338,13 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
                                   {formatNumber(value.creditThisYear)}
                                 </td>
                                 <td data-value={value.latestTaskDownloadTime}>
-                                  {formatTimestamp(value.latestTaskDownloadTime)}
+                                  {formatTimestamp(
+                                    value.latestTaskDownloadTime,
+                                  )}
                                 </td>
                               </tr>
                             );
-                          }
-                        )}
+                          })}
                       </tbody>
                     </table>
                   </div>
@@ -373,180 +364,10 @@ if (!FUNCTION_APP_URI || !FUNCTIONS_KEY) {
     </div>
   </div>
 
-  <style is:global>
-    * {
-      box-sizing: border-box;
-    }
-
-    html,
-    body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      font-family: "Segoe UI", Roboto, sans-serif;
-    }
-
-    table {
-      border-collapse: collapse;
-      background: #fff;
-      border-radius: 4px;
-      border: 1px solid #000000;
-      width: 100%;
-      font-size: 0.85rem;
-    }
-
-    td,
-    th {
-      padding: 0.35rem 0.5rem;
-      border: 1px solid #e1e4e8;
-    }
-
-    th {
-      text-align: left;
-      font-weight: 600;
-      white-space: nowrap;
-    }
-
-    tbody tr:nth-child(even) {
-      background-color: #f6f8fa;
-    }
-
-    tbody tr:nth-child(odd) {
-      background-color: #ffffff;
-    }
-
-    .page-container {
-      position: relative;
-      min-height: 100vh;
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem;
-      background-size: cover;
-      background-position: center center;
-      background-repeat: no-repeat;
-      opacity: 0.95;
-    }
-
-    .content {
-      position: relative;
-      z-index: 1;
-      width: 100%;
-      max-width: 900px;
-    }
-
-    #title,
-    h2 {
-      margin: 0 0 1rem 0;
-      color: #ffffff;
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-    }
-
-    #background {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: -1;
-      filter: blur(100px);
-    }
-
-    th.sortable {
-      cursor: pointer;
-      user-select: none;
-      position: relative;
-    }
-
-    th.sortable:hover {
-      background-color: #0550ae;
-    }
-
-    .sort-indicator {
-      margin-left: 0.5rem;
-      display: inline-block;
-      width: 0.75rem;
-    }
-
-    .sort-indicator::after {
-      content: "○";
-      opacity: 0.3;
-    }
-
-    th.sortable[data-order="asc"] .sort-indicator::after {
-      content: "▲";
-      opacity: 1;
-    }
-
-    th.sortable[data-order="desc"] .sort-indicator::after {
-      content: "▼";
-      opacity: 1;
-    }
-  </style>
+  <style is:global></style>
 
   <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const tables = document.querySelectorAll(".sortable-table");
-
-      tables.forEach((table) => {
-        const headers = table.querySelectorAll("th.sortable");
-        const tbody = table.querySelector("tbody");
-
-        headers.forEach((header, columnIndex) => {
-          header.addEventListener("click", () => {
-            const sortType = (header as HTMLElement).dataset.sort;
-            const currentOrder =
-              (header as HTMLElement).dataset.order || "none";
-            const newOrder = currentOrder === "asc" ? "desc" : "asc";
-
-            // Remove sorting from other headers
-            headers.forEach((h) => delete (h as HTMLElement).dataset.order);
-            (header as HTMLElement).dataset.order = newOrder;
-
-            // Get rows and sort
-            if (!tbody) return;
-            const rows = Array.from(tbody.querySelectorAll("tr"));
-            
-            // Separate Total row from other rows
-            const totalRow = rows.find(row => {
-              const firstCell = row.children[0] as HTMLElement;
-              return firstCell.textContent?.trim() === "Total";
-            });
-            const dataRows = rows.filter(row => {
-              const firstCell = row.children[0] as HTMLElement;
-              return firstCell.textContent?.trim() !== "Total";
-            });
-            
-            // Sort only data rows
-            dataRows.sort((a, b) => {
-              const cellA = a.children[columnIndex] as HTMLElement;
-              const cellB = b.children[columnIndex] as HTMLElement;
-
-              let valueA, valueB;
-
-              if (sortType === "number") {
-                valueA = parseFloat(cellA.dataset.value || "0") || 0;
-                valueB = parseFloat(cellB.dataset.value || "0") || 0;
-              } else if (sortType === "date") {
-                valueA = new Date(cellA.dataset.value || 0).getTime();
-                valueB = new Date(cellB.dataset.value || 0).getTime();
-              } else {
-                valueA = cellA.textContent?.trim().toLowerCase() || "";
-                valueB = cellB.textContent?.trim().toLowerCase() || "";
-              }
-
-              if (valueA < valueB) return newOrder === "asc" ? -1 : 1;
-              if (valueA > valueB) return newOrder === "asc" ? 1 : -1;
-              return 0;
-            });
-
-            // Reappend Total row first, then sorted data rows
-            if (totalRow) tbody.appendChild(totalRow);
-            dataRows.forEach((row) => tbody.appendChild(row));
-          });
-        });
-      });
-    });
+    import { initTableSorting } from "../utils/table-sorting";
+    initTableSorting();
   </script>
 </Layout>
