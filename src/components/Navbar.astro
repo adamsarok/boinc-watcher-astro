@@ -1,5 +1,5 @@
 ---
-const currentPath = Astro.url.pathname;
+const currentPath = Astro.url.pathname.replace(/\/$/, "") || "/";
 ---
 
 <nav>
@@ -14,6 +14,8 @@ const currentPath = Astro.url.pathname;
     background-color: #0969da;
     padding: 1rem 0;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    position: relative;
+    z-index: 100;
   }
 
   .nav-container {
@@ -31,6 +33,7 @@ const currentPath = Astro.url.pathname;
     padding: 0.5rem 1rem;
     border-radius: 4px;
     transition: background-color 0.2s;
+    cursor: pointer;
   }
 
   a:hover {

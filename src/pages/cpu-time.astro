@@ -13,7 +13,6 @@ interface AppRuntimeTableEntity {
   cpuHoursThisWeek: number;
   cpuHoursThisMonth: number;
   cpuHoursThisYear: number;
-  latestTaskDownloadTime: string;
   timestamp: string;
 }
 
@@ -26,31 +25,42 @@ let lastRefresh: Date | undefined;
 
 try {
   const result = await fetchStats("appruntimes");
-  
+
   if (result.ok) {
     const projectData = result.data;
     const projectValues = Object.values(projectData) as AppRuntimeTableEntity[];
-    
+
     // Calculate total row
     const projectTotal: AppRuntimeTableEntity = {
       partitionKey: "",
       rowKey: "Total",
-      cpuHoursTotal: projectValues.reduce((sum, stat) => sum + stat.cpuHoursTotal, 0),
+      cpuHoursTotal: projectValues.reduce(
+        (sum, stat) => sum + stat.cpuHoursTotal,
+        0,
+      ),
       cpuHoursToday: projectValues
         .reduce((sum, stat) => sum + Number(stat.cpuHoursToday), 0)
         .toString(),
-      cpuHoursThisWeek: projectValues.reduce((sum, stat) => sum + stat.cpuHoursThisWeek, 0),
-      cpuHoursThisMonth: projectValues.reduce((sum, stat) => sum + stat.cpuHoursThisMonth, 0),
-      cpuHoursThisYear: projectValues.reduce((sum, stat) => sum + stat.cpuHoursThisYear, 0),
-      latestTaskDownloadTime: "",
-      timestamp: ""
+      cpuHoursThisWeek: projectValues.reduce(
+        (sum, stat) => sum + stat.cpuHoursThisWeek,
+        0,
+      ),
+      cpuHoursThisMonth: projectValues.reduce(
+        (sum, stat) => sum + stat.cpuHoursThisMonth,
+        0,
+      ),
+      cpuHoursThisYear: projectValues.reduce(
+        (sum, stat) => sum + stat.cpuHoursThisYear,
+        0,
+      ),
+      timestamp: "",
     };
-    
+
     lastRefresh = projectValues.reduce((latest, stat) => {
       const statTime = new Date(stat.timestamp);
       return statTime > latest ? statTime : latest;
     }, new Date(0));
-    
+
     // Put Total first
     appRuntimes.projectStats = { _total: projectTotal, ...projectData };
   } else {
@@ -67,7 +77,11 @@ try {
     <div class="content" id="content">
       <img id="background" src={background.src} alt="" fetchpriority="high" />
       <h1 id="title">CPU Time Statistics</h1>
-      <a>Last refresh date: {lastRefresh ? lastRefresh.toLocaleString("hu-HU") : ""}</a>
+      <a
+        >Last refresh date: {
+          lastRefresh ? lastRefresh.toLocaleString("hu-HU") : ""
+        }</a
+      >
       <section style="padding:1rem 0">
         {
           appRuntimes.projectStats ? (
@@ -78,7 +92,13 @@ try {
                   <thead>
                     <tr style="background:#0969da;color:#fff">
                       <th data-sort="string" class="sortable">
+                        Host Name <span class="sort-indicator" />
+                      </th>
+                      <th data-sort="string" class="sortable">
                         Project Name <span class="sort-indicator" />
+                      </th>
+                      <th data-sort="string" class="sortable">
+                        App Name <span class="sort-indicator" />
                       </th>
                       <th
                         data-sort="number"
@@ -115,9 +135,6 @@ try {
                       >
                         CPU Hours This Year <span class="sort-indicator" />
                       </th>
-                      <th data-sort="date" class="sortable">
-                        Latest task download <span class="sort-indicator" />
-                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -131,11 +148,15 @@ try {
                         const isTotal = key === "_total";
                         return (
                           <tr
-                            style={isTotal
-                              ? "background:#f0f0f0;font-weight:600;border-top:2px solid #0969da"
-                              : "border-bottom:1px solid #d0d7de"}
+                            style={
+                              isTotal
+                                ? "background:#f0f0f0;font-weight:600;border-top:2px solid #0969da"
+                                : "border-bottom:1px solid #d0d7de"
+                            }
                           >
-                            <td>{value.rowKey}</td>
+                            <td>{value.partitionKey}</td>
+                            <td>{value.rowKey.split("|")[0]}</td>
+                            <td>{value.rowKey.split("|")[1]}</td>
                             <td
                               data-value={value.cpuHoursTotal}
                               style="text-align:right"
@@ -166,9 +187,6 @@ try {
                             >
                               {formatNumber(value.cpuHoursThisYear)}
                             </td>
-                            <td data-value={value.latestTaskDownloadTime}>
-                              {formatTimestamp(value.latestTaskDownloadTime)}
-                            </td>
                           </tr>
                         );
                       })}
@@ -179,8 +197,8 @@ try {
           ) : (
             <p>
               <em>
-                No CPU time stats available at build time. Ensure
-                Function App is configured correctly.
+                No CPU time stats available at build time. Ensure Function App
+                is configured correctly.
               </em>
             </p>
           )
@@ -323,17 +341,17 @@ try {
             // Get rows and sort
             if (!tbody) return;
             const rows = Array.from(tbody.querySelectorAll("tr"));
-            
+
             // Separate Total row from other rows
-            const totalRow = rows.find(row => {
+            const totalRow = rows.find((row) => {
               const firstCell = row.children[0] as HTMLElement;
               return firstCell.textContent?.trim() === "Total";
             });
-            const dataRows = rows.filter(row => {
+            const dataRows = rows.filter((row) => {
               const firstCell = row.children[0] as HTMLElement;
               return firstCell.textContent?.trim() !== "Total";
             });
-            
+
             // Sort only data rows
             dataRows.sort((a, b) => {
               const cellA = a.children[columnIndex] as HTMLElement;
