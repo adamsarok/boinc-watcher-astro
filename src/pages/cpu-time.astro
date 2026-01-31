@@ -1,0 +1,368 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Navbar from "../components/Navbar.astro";
+import background from "../assets/background.svg";
+import { formatNumber, formatTimestamp } from "../utils/formatter";
+import { fetchStats } from "../utils/function-app";
+
+interface AppRuntimeTableEntity {
+  partitionKey: string;
+  rowKey: string;
+  cpuHoursTotal: number;
+  cpuHoursToday: string;
+  cpuHoursThisWeek: number;
+  cpuHoursThisMonth: number;
+  cpuHoursThisYear: number;
+  latestTaskDownloadTime: string;
+  timestamp: string;
+}
+
+interface AppRuntimes {
+  projectStats: Record<string, AppRuntimeTableEntity> | null;
+}
+
+let appRuntimes: AppRuntimes = { projectStats: null };
+let lastRefresh: Date | undefined;
+
+try {
+  const result = await fetchStats("appruntimes");
+  
+  if (result.ok) {
+    const projectData = result.data;
+    const projectValues = Object.values(projectData) as AppRuntimeTableEntity[];
+    
+    // Calculate total row
+    const projectTotal: AppRuntimeTableEntity = {
+      partitionKey: "",
+      rowKey: "Total",
+      cpuHoursTotal: projectValues.reduce((sum, stat) => sum + stat.cpuHoursTotal, 0),
+      cpuHoursToday: projectValues
+        .reduce((sum, stat) => sum + Number(stat.cpuHoursToday), 0)
+        .toString(),
+      cpuHoursThisWeek: projectValues.reduce((sum, stat) => sum + stat.cpuHoursThisWeek, 0),
+      cpuHoursThisMonth: projectValues.reduce((sum, stat) => sum + stat.cpuHoursThisMonth, 0),
+      cpuHoursThisYear: projectValues.reduce((sum, stat) => sum + stat.cpuHoursThisYear, 0),
+      latestTaskDownloadTime: "",
+      timestamp: ""
+    };
+    
+    lastRefresh = projectValues.reduce((latest, stat) => {
+      const statTime = new Date(stat.timestamp);
+      return statTime > latest ? statTime : latest;
+    }, new Date(0));
+    
+    // Put Total first
+    appRuntimes.projectStats = { _total: projectTotal, ...projectData };
+  } else {
+    console.warn("Failed to fetch app runtime stats:", result.url);
+  }
+} catch (err) {
+  console.error("Error fetching app runtime stats:", err);
+}
+---
+
+<Layout>
+  <Navbar />
+  <div class="page-container">
+    <div class="content" id="content">
+      <img id="background" src={background.src} alt="" fetchpriority="high" />
+      <h1 id="title">CPU Time Statistics</h1>
+      <a>Last refresh date: {lastRefresh ? lastRefresh.toLocaleString("hu-HU") : ""}</a>
+      <section style="padding:1rem 0">
+        {
+          appRuntimes.projectStats ? (
+            <div>
+              <h2>Project CPU Time</h2>
+              <div style="overflow-x:auto">
+                <table class="sortable-table" data-table="appruntime">
+                  <thead>
+                    <tr style="background:#0969da;color:#fff">
+                      <th data-sort="string" class="sortable">
+                        Project Name <span class="sort-indicator" />
+                      </th>
+                      <th
+                        data-sort="number"
+                        class="sortable"
+                        style="text-align:right"
+                      >
+                        Total CPU Hours <span class="sort-indicator" />
+                      </th>
+                      <th
+                        data-sort="number"
+                        class="sortable"
+                        style="text-align:right"
+                      >
+                        CPU Hours Today <span class="sort-indicator" />
+                      </th>
+                      <th
+                        data-sort="number"
+                        class="sortable"
+                        style="text-align:right"
+                      >
+                        CPU Hours This Week <span class="sort-indicator" />
+                      </th>
+                      <th
+                        data-sort="number"
+                        class="sortable"
+                        style="text-align:right"
+                      >
+                        CPU Hours This Month <span class="sort-indicator" />
+                      </th>
+                      <th
+                        data-sort="number"
+                        class="sortable"
+                        style="text-align:right"
+                      >
+                        CPU Hours This Year <span class="sort-indicator" />
+                      </th>
+                      <th data-sort="date" class="sortable">
+                        Latest task download <span class="sort-indicator" />
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(appRuntimes.projectStats)
+                      .sort(([keyA], [keyB]) => {
+                        if (keyA === "_total") return -1;
+                        if (keyB === "_total") return 1;
+                        return 0;
+                      })
+                      .map(([key, value]) => {
+                        const isTotal = key === "_total";
+                        return (
+                          <tr
+                            style={isTotal
+                              ? "background:#f0f0f0;font-weight:600;border-top:2px solid #0969da"
+                              : "border-bottom:1px solid #d0d7de"}
+                          >
+                            <td>{value.rowKey}</td>
+                            <td
+                              data-value={value.cpuHoursTotal}
+                              style="text-align:right"
+                            >
+                              {formatNumber(value.cpuHoursTotal)}
+                            </td>
+                            <td
+                              data-value={value.cpuHoursToday}
+                              style="text-align:right"
+                            >
+                              {formatNumber(Number(value.cpuHoursToday))}
+                            </td>
+                            <td
+                              data-value={value.cpuHoursThisWeek}
+                              style="text-align:right"
+                            >
+                              {formatNumber(value.cpuHoursThisWeek)}
+                            </td>
+                            <td
+                              data-value={value.cpuHoursThisMonth}
+                              style="text-align:right"
+                            >
+                              {formatNumber(value.cpuHoursThisMonth)}
+                            </td>
+                            <td
+                              data-value={value.cpuHoursThisYear}
+                              style="text-align:right"
+                            >
+                              {formatNumber(value.cpuHoursThisYear)}
+                            </td>
+                            <td data-value={value.latestTaskDownloadTime}>
+                              {formatTimestamp(value.latestTaskDownloadTime)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <p>
+              <em>
+                No CPU time stats available at build time. Ensure
+                Function App is configured correctly.
+              </em>
+            </p>
+          )
+        }
+      </section>
+    </div>
+  </div>
+
+  <style is:global>
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: "Segoe UI", Roboto, sans-serif;
+    }
+
+    table {
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 4px;
+      border: 1px solid #000000;
+      width: 100%;
+      font-size: 0.85rem;
+    }
+
+    td,
+    th {
+      padding: 0.35rem 0.5rem;
+      border: 1px solid #e1e4e8;
+    }
+
+    th {
+      text-align: left;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    tbody tr:nth-child(even) {
+      background-color: #f6f8fa;
+    }
+
+    tbody tr:nth-child(odd) {
+      background-color: #ffffff;
+    }
+
+    .page-container {
+      position: relative;
+      min-height: 100vh;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      background-size: cover;
+      background-position: center center;
+      background-repeat: no-repeat;
+      opacity: 0.95;
+    }
+
+    .content {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 900px;
+    }
+
+    #title,
+    h2 {
+      margin: 0 0 1rem 0;
+      color: #ffffff;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+    }
+
+    #background {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      filter: blur(100px);
+    }
+
+    th.sortable {
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+    }
+
+    th.sortable:hover {
+      background-color: #0550ae;
+    }
+
+    .sort-indicator {
+      margin-left: 0.5rem;
+      display: inline-block;
+      width: 0.75rem;
+    }
+
+    .sort-indicator::after {
+      content: "○";
+      opacity: 0.3;
+    }
+
+    th.sortable[data-order="asc"] .sort-indicator::after {
+      content: "▲";
+      opacity: 1;
+    }
+
+    th.sortable[data-order="desc"] .sort-indicator::after {
+      content: "▼";
+      opacity: 1;
+    }
+  </style>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const tables = document.querySelectorAll(".sortable-table");
+
+      tables.forEach((table) => {
+        const headers = table.querySelectorAll("th.sortable");
+        const tbody = table.querySelector("tbody");
+
+        headers.forEach((header, columnIndex) => {
+          header.addEventListener("click", () => {
+            const sortType = (header as HTMLElement).dataset.sort;
+            const currentOrder =
+              (header as HTMLElement).dataset.order || "none";
+            const newOrder = currentOrder === "asc" ? "desc" : "asc";
+
+            // Remove sorting from other headers
+            headers.forEach((h) => delete (h as HTMLElement).dataset.order);
+            (header as HTMLElement).dataset.order = newOrder;
+
+            // Get rows and sort
+            if (!tbody) return;
+            const rows = Array.from(tbody.querySelectorAll("tr"));
+            
+            // Separate Total row from other rows
+            const totalRow = rows.find(row => {
+              const firstCell = row.children[0] as HTMLElement;
+              return firstCell.textContent?.trim() === "Total";
+            });
+            const dataRows = rows.filter(row => {
+              const firstCell = row.children[0] as HTMLElement;
+              return firstCell.textContent?.trim() !== "Total";
+            });
+            
+            // Sort only data rows
+            dataRows.sort((a, b) => {
+              const cellA = a.children[columnIndex] as HTMLElement;
+              const cellB = b.children[columnIndex] as HTMLElement;
+
+              let valueA, valueB;
+
+              if (sortType === "number") {
+                valueA = parseFloat(cellA.dataset.value || "0") || 0;
+                valueB = parseFloat(cellB.dataset.value || "0") || 0;
+              } else if (sortType === "date") {
+                valueA = new Date(cellA.dataset.value || 0).getTime();
+                valueB = new Date(cellB.dataset.value || 0).getTime();
+              } else {
+                valueA = cellA.textContent?.trim().toLowerCase() || "";
+                valueB = cellB.textContent?.trim().toLowerCase() || "";
+              }
+
+              if (valueA < valueB) return newOrder === "asc" ? -1 : 1;
+              if (valueA > valueB) return newOrder === "asc" ? 1 : -1;
+              return 0;
+            });
+
+            // Reappend Total row first, then sorted data rows
+            if (totalRow) tbody.appendChild(totalRow);
+            dataRows.forEach((row) => tbody.appendChild(row));
+          });
+        });
+      });
+    });
+  </script>
+</Layout>
