@@ -67,7 +67,7 @@ try {
     // Put Total first
     stats.hostStats = { _total: hostTotal, ...hostData };
   } else {
-    console.warn("Failed to fetch host stats:", hostResult.url);
+    console.warn("Failed to fetch host stats");
   }
 
   if (projectResult.ok) {
@@ -105,7 +105,7 @@ try {
     // Put Total first
     stats.projectStats = { _total: projectTotal, ...projectData };
   } else {
-    console.warn("Failed to fetch project stats:", projectResult.url);
+    console.warn("Failed to fetch project stats");
   }
 } catch (err) {
   console.error("Error fetching function app stats:", err);

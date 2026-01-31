@@ -65,7 +65,7 @@ try {
     // Put Total first
     appRuntimes.projectStats = { _total: projectTotal, ...projectData };
   } else {
-    console.warn("Failed to fetch app runtime stats:", result.url);
+    console.warn("Failed to fetch app runtime stats");
   }
 } catch (err) {
   console.error("Error fetching app runtime stats:", err);
