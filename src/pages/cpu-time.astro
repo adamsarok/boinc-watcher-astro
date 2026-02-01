@@ -2,7 +2,7 @@
 import Layout from "../layouts/Layout.astro";
 import Navbar from "../components/Navbar.astro";
 import background from "../assets/background.svg";
-import { formatNumber, formatTimestamp } from "../utils/formatter";
+import { formatNumber } from "../utils/formatter";
 import { fetchStats } from "../utils/function-app";
 import "../styles/table.css";
 
@@ -10,25 +10,36 @@ interface AppRuntimeTableEntity {
   partitionKey: string;
   rowKey: string;
   cpuHoursTotal: number;
-  cpuHoursToday: string;
+  cpuHoursToday: number;
   cpuHoursThisWeek: number;
   cpuHoursThisMonth: number;
   cpuHoursThisYear: number;
   timestamp: string;
 }
 
-interface AppRuntimes {
-  projectStats: Record<string, AppRuntimeTableEntity> | null;
+interface EfficiencyTableEntity {
+  partitionKey: string;
+  rowKey: string;
+  cpuHoursTotal: number;
+  pointsTotal: number;
+  pointsPerCPUHour: number;
+  timestamp: string;
 }
 
-let appRuntimes: AppRuntimes = { projectStats: null };
+interface AppRuntimes {
+  appRuntimes: Record<string, AppRuntimeTableEntity> | null;
+  efficiencyStats: Record<string, EfficiencyTableEntity> | null;
+}
+
+let appRuntimes: AppRuntimes = { appRuntimes: null, efficiencyStats: null };
 let lastRefresh: Date | undefined;
 
 try {
-  const result = await fetchStats("appruntimes");
+  const runtimeResult = await fetchStats("appruntimes");
+  const efficiencyResult = await fetchStats("efficiency");
 
-  if (result.ok) {
-    const projectData = result.data;
+  if (runtimeResult.ok) {
+    const projectData = runtimeResult.data;
     const projectValues = Object.values(projectData) as AppRuntimeTableEntity[];
 
     // Calculate total row
@@ -40,8 +51,7 @@ try {
         0,
       ),
       cpuHoursToday: projectValues
-        .reduce((sum, stat) => sum + Number(stat.cpuHoursToday), 0)
-        .toString(),
+        .reduce((sum, stat) => sum + stat.cpuHoursToday, 0),
       cpuHoursThisWeek: projectValues.reduce(
         (sum, stat) => sum + stat.cpuHoursThisWeek,
         0,
@@ -63,9 +73,18 @@ try {
     }, new Date(0));
 
     // Put Total first
-    appRuntimes.projectStats = { _total: projectTotal, ...projectData };
+    appRuntimes.appRuntimes = { _total: projectTotal, ...projectData };
   } else {
     console.warn("Failed to fetch app runtime stats");
+  }
+
+  if (efficiencyResult.ok) {
+    appRuntimes.efficiencyStats = efficiencyResult.data as Record<
+      string,
+      EfficiencyTableEntity
+    >;
+  } else {
+    console.warn("Failed to fetch efficiency stats");
   }
 } catch (err) {
   console.error("Error fetching app runtime stats:", err);
@@ -85,7 +104,7 @@ try {
       >
       <section style="padding:1rem 0">
         {
-          appRuntimes.projectStats ? (
+          appRuntimes.appRuntimes ? (
             <div>
               <h2>Project CPU Time</h2>
               <div style="overflow-x:auto">
@@ -139,7 +158,7 @@ try {
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(appRuntimes.projectStats)
+                    {Object.entries(appRuntimes.appRuntimes)
                       .sort(([keyA], [keyB]) => {
                         if (keyA === "_total") return -1;
                         if (keyB === "_total") return 1;
@@ -162,31 +181,31 @@ try {
                               data-value={value.cpuHoursTotal}
                               style="text-align:right"
                             >
-                              {formatNumber(value.cpuHoursTotal)}
+                              {formatNumber(value.cpuHoursTotal, 2)}
                             </td>
                             <td
                               data-value={value.cpuHoursToday}
                               style="text-align:right"
                             >
-                              {formatNumber(Number(value.cpuHoursToday))}
+                              {formatNumber(value.cpuHoursToday, 2)}
                             </td>
                             <td
                               data-value={value.cpuHoursThisWeek}
                               style="text-align:right"
                             >
-                              {formatNumber(value.cpuHoursThisWeek)}
+                              {formatNumber(value.cpuHoursThisWeek, 2)}
                             </td>
                             <td
                               data-value={value.cpuHoursThisMonth}
                               style="text-align:right"
                             >
-                              {formatNumber(value.cpuHoursThisMonth)}
+                              {formatNumber(value.cpuHoursThisMonth, 2)}
                             </td>
                             <td
                               data-value={value.cpuHoursThisYear}
                               style="text-align:right"
                             >
-                              {formatNumber(value.cpuHoursThisYear)}
+                              {formatNumber(value.cpuHoursThisYear, 2)}
                             </td>
                           </tr>
                         );
@@ -199,6 +218,89 @@ try {
             <p>
               <em>
                 No CPU time stats available at build time. Ensure Function App
+                is configured correctly.
+              </em>
+            </p>
+          )
+        }
+      </section>
+      <section style="padding:1rem 0">
+        {
+          appRuntimes.efficiencyStats ? (
+            <div>
+              <h2>Efficiency Statistics</h2>
+              <div style="overflow-x:auto">
+                <table class="sortable-table" data-table="efficiency">
+                  <thead>
+                    <tr style="background:#0969da;color:#fff">
+                      <th data-sort="string" class="sortable">
+                        Host Name <span class="sort-indicator" />
+                      </th>
+                      <th data-sort="string" class="sortable">
+                        Project Name <span class="sort-indicator" />
+                      </th>
+                      <th data-sort="string" class="sortable">
+                        App Name <span class="sort-indicator" />
+                      </th>
+                      <th
+                        data-sort="number"
+                        class="sortable"
+                        style="text-align:right"
+                      >
+                        Total CPU Hours <span class="sort-indicator" />
+                      </th>
+                      <th
+                        data-sort="number"
+                        class="sortable"
+                        style="text-align:right"
+                      >
+                        Total Points <span class="sort-indicator" />
+                      </th>
+                      <th
+                        data-sort="number"
+                        class="sortable"
+                        style="text-align:right"
+                      >
+                        Points Per CPU Hour <span class="sort-indicator" />
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(appRuntimes.efficiencyStats).map(
+                      ([key, value]) => (
+                        <tr style="border-bottom:1px solid #d0d7de">
+                          <td>{value.partitionKey}</td>
+                          <td>{value.rowKey.split("|")[0]}</td>
+                          <td>{value.rowKey.split("|")[1]}</td>
+                          <td
+                            data-value={value.cpuHoursTotal}
+                            style="text-align:right"
+                          >
+                            {formatNumber(value.cpuHoursTotal, 2)}
+                          </td>
+                          <td
+                            data-value={value.pointsTotal}
+                            style="text-align:right"
+                          >
+                            {formatNumber(value.pointsTotal, 2)}
+                          </td>
+                          <td
+                            data-value={value.pointsPerCPUHour}
+                            style="text-align:right"
+                          >
+                            {formatNumber(value.pointsPerCPUHour, 2)}
+                          </td>
+                        </tr>
+                      ),
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <p>
+              <em>
+                No efficiency stats available at build time. Ensure Function App
                 is configured correctly.
               </em>
             </p>

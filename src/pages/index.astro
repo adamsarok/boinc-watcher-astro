@@ -11,7 +11,7 @@ import "../styles/table.css";
 interface Stat {
   rowKey: string;
   creditTotal: number;
-  creditToday: string;
+  creditToday: number;
   creditThisWeek: number;
   creditThisMonth: number;
   creditThisYear: number;
@@ -43,8 +43,7 @@ try {
       rowKey: "Total",
       creditTotal: hostValues.reduce((sum, stat) => sum + stat.creditTotal, 0),
       creditToday: hostValues
-        .reduce((sum, stat) => sum + Number(stat.creditToday), 0)
-        .toString(),
+        .reduce((sum, stat) => sum + stat.creditToday, 0),
       creditThisWeek: hostValues.reduce(
         (sum, stat) => sum + stat.creditThisWeek,
         0,
@@ -81,8 +80,7 @@ try {
         0,
       ),
       creditToday: projectValues
-        .reduce((sum, stat) => sum + Number(stat.creditToday), 0)
-        .toString(),
+        .reduce((sum, stat) => sum + stat.creditToday, 0),
       creditThisWeek: projectValues.reduce(
         (sum, stat) => sum + stat.creditThisWeek,
         0,
@@ -199,31 +197,31 @@ try {
                                   data-value={value.creditTotal}
                                   style="text-align:right"
                                 >
-                                  {formatNumber(value.creditTotal)}
+                                  {formatNumber(value.creditTotal, 0)}
                                 </td>
                                 <td
                                   data-value={value.creditToday}
                                   style="text-align:right"
                                 >
-                                  {formatNumber(Number(value.creditToday))}
+                                  {formatNumber(value.creditToday, 0)}
                                 </td>
                                 <td
                                   data-value={value.creditThisWeek}
                                   style="text-align:right"
                                 >
-                                  {formatNumber(value.creditThisWeek)}
+                                  {formatNumber(value.creditThisWeek, 0)}
                                 </td>
                                 <td
                                   data-value={value.creditThisMonth}
                                   style="text-align:right"
                                 >
-                                  {formatNumber(value.creditThisMonth)}
+                                  {formatNumber(value.creditThisMonth, 0)}
                                 </td>
                                 <td
                                   data-value={value.creditThisYear}
                                   style="text-align:right"
                                 >
-                                  {formatNumber(value.creditThisYear)}
+                                  {formatNumber(value.creditThisYear, 0)}
                                 </td>
                                 <td data-value={value.latestTaskDownloadTime}>
                                   {formatTimestamp(
@@ -311,31 +309,31 @@ try {
                                   data-value={value.creditTotal}
                                   style="text-align:right"
                                 >
-                                  {formatNumber(value.creditTotal)}
+                                  {formatNumber(value.creditTotal, 0)}
                                 </td>
                                 <td
                                   data-value={value.creditToday}
                                   style="text-align:right"
                                 >
-                                  {formatNumber(Number(value.creditToday))}
+                                  {formatNumber(value.creditToday, 0)}
                                 </td>
                                 <td
                                   data-value={value.creditThisWeek}
                                   style="text-align:right"
                                 >
-                                  {formatNumber(value.creditThisWeek)}
+                                  {formatNumber(value.creditThisWeek, 0)}
                                 </td>
                                 <td
                                   data-value={value.creditThisMonth}
                                   style="text-align:right"
                                 >
-                                  {formatNumber(value.creditThisMonth)}
+                                  {formatNumber(value.creditThisMonth, 0)}
                                 </td>
                                 <td
                                   data-value={value.creditThisYear}
                                   style="text-align:right"
                                 >
-                                  {formatNumber(value.creditThisYear)}
+                                  {formatNumber(value.creditThisYear, 0)}
                                 </td>
                                 <td data-value={value.latestTaskDownloadTime}>
                                   {formatTimestamp(

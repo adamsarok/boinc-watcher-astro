@@ -1,8 +1,8 @@
 // Formatting helper functions
-export const formatNumber = (value: number | undefined): string => {
+
+export const formatNumber = (value: number | undefined, digits: number): string => {
   if (value === undefined) return "";
-  const rounded = Math.round(value);
-  return rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return value.toLocaleString("hu-HU", { minimumFractionDigits: digits, maximumFractionDigits: digits })
 };
 
 export const formatTimestamp = (timestamp: string): string => {
